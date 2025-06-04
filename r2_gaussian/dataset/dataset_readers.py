@@ -60,23 +60,20 @@ def readBlenderInfo(path, eval):
         )
 
     #! We will scale the scene so that the volume of interest is in [-1, 1]^3 cube.
-    if meta_data["scanner"].get("mode", "cone") == "parallel":
-        scene_scale = 1.0
-    else:
-        scene_scale = 2 / max(meta_data["scanner"]["sVoxel"])
-        for key_to_scale in [
-            "dVoxel",
-            "sVoxel",
-            "sDetector",
-            "dDetector",
-            "offOrigin",
-            "offDetector",
-            "DSD",
-            "DSO",
-        ]:
-            meta_data["scanner"][key_to_scale] = (
-                np.array(meta_data["scanner"][key_to_scale]) * scene_scale
-            ).tolist()
+    scene_scale = 2 / max(meta_data["scanner"]["sVoxel"])
+    for key_to_scale in [
+        "dVoxel",
+        "sVoxel",
+        "sDetector",
+        "dDetector",
+        "offOrigin",
+        "offDetector",
+        "DSD",
+        "DSO",
+    ]:
+        meta_data["scanner"][key_to_scale] = (
+            np.array(meta_data["scanner"][key_to_scale]) * scene_scale
+        ).tolist()
 
     cam_infos = readCTameras(meta_data, path, eval, scene_scale)
     train_cam_infos = cam_infos["train"]
@@ -120,7 +117,7 @@ def readCTameras(meta_data, source_path, eval=False, scene_scale=1.0):
             frame_angle = frame_info["angle"]
 
             # CT 'transform_matrix' is a camera-to-world transform
-            c2w = angle2pose(cam_cfg, frame_angle)  # c2w
+            c2w = angle2pose(cam_cfg["DSO"], frame_angle)  # c2w
             # get the world-to-camera transform and set R, T
             w2c = np.linalg.inv(c2w)
             R = np.transpose(
@@ -131,12 +128,8 @@ def readCTameras(meta_data, source_path, eval=False, scene_scale=1.0):
             image_path = osp.join(source_path, frame_info["file_path"])
             image = np.load(image_path) * scene_scale
             # Note, dDetector is [v, u] not [u, v]
-            if cam_cfg.get("mode", "cone") == "parallel":
-                FovX = 1.0
-                FovY = 1.0
-            else:
-                FovX = np.arctan2(cam_cfg["sDetector"][1] / 2, cam_cfg["DSD"]) * 2
-                FovY = np.arctan2(cam_cfg["sDetector"][0] / 2, cam_cfg["DSD"]) * 2
+            FovX = np.arctan2(cam_cfg["sDetector"][1] / 2, cam_cfg["DSD"]) * 2
+            FovY = np.arctan2(cam_cfg["sDetector"][0] / 2, cam_cfg["DSD"]) * 2
 
             mode = mode_id[cam_cfg["mode"]]
 
@@ -160,7 +153,7 @@ def readCTameras(meta_data, source_path, eval=False, scene_scale=1.0):
     return cam_infos
 
 
-def angle2pose(scanner_cfg, angle):
+def angle2pose(DSO, angle):
     """Transfer angle to pose (c2w) based on scanner geometry.
     1. rotate -90 degree around x-axis (fixed axis),
     2. rotate 90 degree around z-axis  (fixed axis),
@@ -190,11 +183,7 @@ def angle2pose(scanner_cfg, angle):
         ]
     )
     rot = np.dot(np.dot(R3, R2), R1)
-    if scanner_cfg.get("mode", "cone") == "parallel":
-        trans = np.array([0.0, 0.0, 0.0])
-    else:
-        DSO = scanner_cfg["DSO"]
-        trans = np.array([DSO * np.cos(angle), DSO * np.sin(angle), 0])
+    trans = np.array([DSO * np.cos(angle), DSO * np.sin(angle), 0])
     transform = np.eye(4)
     transform[:3, :3] = rot
     transform[:3, 3] = trans
@@ -229,23 +218,20 @@ def readNAFInfo(path, eval):
     }
 
     #! We will scale the scene so that the volume of interest is in [-1, 1]^3 cube.
-    if scanner_cfg.get("mode", "cone") == "parallel":
-        scene_scale = 1.0
-    else:
-        scene_scale = 2 / max(scanner_cfg["sVoxel"])
-        for key_to_scale in [
-            "dVoxel",
-            "sVoxel",
-            "sDetector",
-            "dDetector",
-            "offOrigin",
-            "offDetector",
-            "DSD",
-            "DSO",
-        ]:
-            scanner_cfg[key_to_scale] = (
-                np.array(scanner_cfg[key_to_scale]) * scene_scale
-            ).tolist()
+    scene_scale = 2 / max(scanner_cfg["sVoxel"])
+    for key_to_scale in [
+        "dVoxel",
+        "sVoxel",
+        "sDetector",
+        "dDetector",
+        "offOrigin",
+        "offDetector",
+        "DSD",
+        "DSO",
+    ]:
+        scanner_cfg[key_to_scale] = (
+            np.array(scanner_cfg[key_to_scale]) * scene_scale
+        ).tolist()
 
     # Generate camera infos
     if eval:
@@ -273,7 +259,7 @@ def readNAFInfo(path, eval):
             sys.stdout.flush()
 
             frame_angle = angles[i_split]
-            c2w = angle2pose(scanner_cfg, frame_angle)
+            c2w = angle2pose(scanner_cfg["DSO"], frame_angle)
             # get the world-to-camera transform and set R, T
             w2c = np.linalg.inv(c2w)
             R = np.transpose(
@@ -284,12 +270,8 @@ def readNAFInfo(path, eval):
             image = projs[i_split] * scene_scale
 
             # Note, dDetector is [v, u] not [u, v]
-            if scanner_cfg.get("mode", "cone") == "parallel":
-                FovX = 1.0
-                FovY = 1.0
-            else:
-                FovX = np.arctan2(scanner_cfg["sDetector"][1] / 2, scanner_cfg["DSD"]) * 2
-                FovY = np.arctan2(scanner_cfg["sDetector"][0] / 2, scanner_cfg["DSD"]) * 2
+            FovX = np.arctan2(scanner_cfg["sDetector"][1] / 2, scanner_cfg["DSD"]) * 2
+            FovY = np.arctan2(scanner_cfg["sDetector"][0] / 2, scanner_cfg["DSD"]) * 2
 
             mode = mode_id[scanner_cfg["mode"]]
 
